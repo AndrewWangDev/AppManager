@@ -125,22 +125,36 @@ public class RulesTypeSelectionDialogFragment extends DialogFragment {
         if (mUri == null) {
             return;
         }
-        WeakReference<FragmentActivity> activityRef = new WeakReference<>(mActivity);
-        ThreadUtils.postOnBackgroundThread(() -> {
-            PowerManager.WakeLock wakeLock = CpuUtils.getPartialWakeLock("rules_exporter");
-            wakeLock.acquire();
-            try (RulesImporter importer = new RulesImporter(new ArrayList<>(mSelectedTypes), mUserIds)) {
-                importer.addRulesFromUri(mUri);
-                if (mPackages != null) importer.setPackagesToImport(mPackages);
-                importer.applyRules(true);
-                ThreadUtils.postOnMainThread(() -> UIUtils.displayShortToast(R.string.the_import_was_successful));
-            } catch (IOException e) {
-                ThreadUtils.postOnMainThread(() -> UIUtils.displayLongToast(R.string.import_failed));
-            } finally {
-                CpuUtils.releaseWakeLock(wakeLock);
-            }
-            hideProgressBar(activityRef);
-        });
+        Runnable doImport = () -> {
+            WeakReference<FragmentActivity> activityRef = new WeakReference<>(mActivity);
+            ThreadUtils.postOnBackgroundThread(() -> {
+                PowerManager.WakeLock wakeLock = CpuUtils.getPartialWakeLock("rules_exporter");
+                wakeLock.acquire();
+                try (RulesImporter importer = new RulesImporter(new ArrayList<>(mSelectedTypes), mUserIds)) {
+                    importer.addRulesFromUri(mUri);
+                    if (mPackages != null) importer.setPackagesToImport(mPackages);
+                    importer.applyRules(true);
+                    ThreadUtils.postOnMainThread(() -> UIUtils.displayShortToast(R.string.the_import_was_successful));
+                } catch (IOException e) {
+                    ThreadUtils.postOnMainThread(() -> UIUtils.displayLongToast(R.string.import_failed));
+                } finally {
+                    CpuUtils.releaseWakeLock(wakeLock);
+                }
+                hideProgressBar(activityRef);
+            });
+        };
+        
+        if (mPackages != null && !mPackages.isEmpty()) {
+            io.github.muntashirakon.AppManager.utils.UidWarningHelper.warnIfSharedUids(requireContext(), mPackages, doImport);
+        } else {
+            // Warn generally for all rules import
+            new com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
+                    .setTitle(R.string.are_you_sure)
+                    .setMessage(R.string.warning_shared_uid_global_import)
+                    .setPositiveButton(R.string.yes, (dialog, which) -> doImport.run())
+                    .setNegativeButton(R.string.cancel, null)
+                    .show();
+        }
     }
 
     private void hideProgressBar(@NonNull WeakReference<FragmentActivity> activityRef) {

@@ -369,10 +369,13 @@ public class OneClickOpsActivity extends BaseActivity {
                 .addSelections(selectedPackages)
                 .setTitle(R.string.filtered_packages)
                 .setPositiveButton(R.string.apply, (dialog1, which1, selectedItems) -> {
-                    progressIndicator.show();
-                    BatchQueueItem item = BatchQueueItem.getOneClickQueue(BatchOpsManager.OP_SET_APP_OPS,
-                            selectedItems, null, options);
-                    launchService(item);
+                    Runnable doSetAppOps = () -> {
+                        progressIndicator.show();
+                        BatchQueueItem item = BatchQueueItem.getOneClickQueue(BatchOpsManager.OP_SET_APP_OPS,
+                                selectedItems, null, options);
+                        launchService(item);
+                    };
+                    io.github.muntashirakon.AppManager.utils.UidWarningHelper.warnIfSharedUids(this, selectedItems, doSetAppOps);
                 })
                 .setNegativeButton(R.string.cancel, (dialog1, which1, selectedItems) -> progressIndicator.hide())
                 .show();

@@ -57,6 +57,7 @@ import io.github.muntashirakon.AppManager.utils.DateUtils;
 import io.github.muntashirakon.AppManager.utils.ExUtils;
 import io.github.muntashirakon.AppManager.utils.LangUtils;
 import io.github.muntashirakon.AppManager.utils.ThreadUtils;
+import io.github.muntashirakon.AppManager.utils.UidWarningHelper;
 import io.github.muntashirakon.AppManager.utils.UIUtils;
 import io.github.muntashirakon.AppManager.utils.Utils;
 import io.github.muntashirakon.AppManager.utils.appearance.ColorCodes;
@@ -177,35 +178,40 @@ public class AppDetailsPermissionsFragment extends AppDetailsFragment {
         if (id == R.id.action_refresh_details) {
             refreshDetails();
         } else if (id == R.id.action_reset_to_default) {  // App ops
-            ProgressIndicatorCompat.setVisibility(progressIndicator, true);
-            // TODO: 19/3/23 Perform using a ViewModel
-            ThreadUtils.postOnBackgroundThread(() -> {
-                if (viewModel == null || !viewModel.resetAppOps()) {
-                    ThreadUtils.postOnMainThread(() -> UIUtils.displayShortToast(R.string.failed_to_reset_app_ops));
-                } else {
-                    ThreadUtils.postOnMainThread(() -> {
-                        if (!isDetached()) {
-                            refreshDetails();
-                        }
-                    });
-                }
+            if (viewModel == null) return true;
+            UidWarningHelper.warnIfSharedUid(activity, viewModel.getUid(), mPackageName, () -> {
+                ProgressIndicatorCompat.setVisibility(progressIndicator, true);
+                // TODO: 19/3/23 Perform using a ViewModel
+                ThreadUtils.postOnBackgroundThread(() -> {
+                    if (!viewModel.resetAppOps()) {
+                        ThreadUtils.postOnMainThread(() -> UIUtils.displayShortToast(R.string.failed_to_reset_app_ops));
+                    } else {
+                        ThreadUtils.postOnMainThread(() -> {
+                            if (!isDetached()) {
+                                refreshDetails();
+                            }
+                        });
+                    }
+                });
             });
         } else if (id == R.id.action_deny_dangerous_app_ops) {  // App ops
-            ProgressIndicatorCompat.setVisibility(progressIndicator, true);
-            // TODO: 19/3/23 Perform using a ViewModel
-            ThreadUtils.postOnBackgroundThread(() -> {
-                boolean isSuccessful = ExUtils.requireNonNullElse(() -> viewModel != null
-                        && viewModel.ignoreDangerousAppOps(), false);
-                if (isSuccessful) {
-                    ThreadUtils.postOnMainThread(() -> {
-                        if (!isDetached()) {
-                            refreshDetails();
-                        }
-                    });
-                } else {
-                    ThreadUtils.postOnMainThread(() -> UIUtils.displayShortToast(
-                            R.string.failed_to_deny_dangerous_app_ops));
-                }
+            if (viewModel == null) return true;
+            UidWarningHelper.warnIfSharedUid(activity, viewModel.getUid(), mPackageName, () -> {
+                ProgressIndicatorCompat.setVisibility(progressIndicator, true);
+                // TODO: 19/3/23 Perform using a ViewModel
+                ThreadUtils.postOnBackgroundThread(() -> {
+                    boolean isSuccessful = viewModel.ignoreDangerousAppOps();
+                    if (isSuccessful) {
+                        ThreadUtils.postOnMainThread(() -> {
+                            if (!isDetached()) {
+                                refreshDetails();
+                            }
+                        });
+                    } else {
+                        ThreadUtils.postOnMainThread(() -> UIUtils.displayShortToast(
+                                R.string.failed_to_deny_dangerous_app_ops));
+                    }
+                });
             });
         } else if (id == R.id.action_toggle_default_app_ops) {  // App ops
             ProgressIndicatorCompat.setVisibility(progressIndicator, true);
@@ -238,17 +244,20 @@ public class AppDetailsPermissionsFragment extends AppDetailsFragment {
                             return;
                         }
                         // TODO: 22/5/23 Perform using a ViewModel
-                        ThreadUtils.postOnBackgroundThread(() -> {
-                            if (viewModel != null && viewModel.setAppOp(op, mode)) {
-                                ThreadUtils.postOnMainThread(() -> {
-                                    if (!isDetached()) {
-                                        refreshDetails();
-                                    }
-                                });
-                            } else {
-                                ThreadUtils.postOnMainThread(() -> UIUtils.displayShortToast(
-                                        R.string.failed_to_enable_op));
-                            }
+                        if (viewModel == null) return;
+                        UidWarningHelper.warnIfSharedUid(activity, viewModel.getUid(), mPackageName, () -> {
+                            ThreadUtils.postOnBackgroundThread(() -> {
+                                if (viewModel.setAppOp(op, mode)) {
+                                    ThreadUtils.postOnMainThread(() -> {
+                                        if (!isDetached()) {
+                                            refreshDetails();
+                                        }
+                                    });
+                                } else {
+                                    ThreadUtils.postOnMainThread(() -> UIUtils.displayShortToast(
+                                            R.string.failed_to_enable_op));
+                                }
+                            });
                         });
                     })
                     .setNegativeButton(R.string.cancel, null)
@@ -689,15 +698,18 @@ public class AppDetailsPermissionsFragment extends AppDetailsFragment {
             holder.itemView.setOnClickListener(v -> {
                 boolean isAllowed = !item.isAllowed();
                 // TODO: 22/5/23 Perform using a ViewModel
-                ThreadUtils.postOnBackgroundThread(() -> {
-                    if (viewModel != null && viewModel.setAppOpMode(item)) {
-                        int currentPos = holder.getBindingAdapterPosition();
-                        if (currentPos == RecyclerView.NO_POSITION) return;
-                        ThreadUtils.postOnMainThread(() -> notifyItemChanged(currentPos, AdapterUtils.STUB));
-                    } else {
-                        ThreadUtils.postOnMainThread(() -> UIUtils.displayLongToast(isAllowed
-                                ? R.string.failed_to_enable_op : R.string.failed_to_disable_op));
-                    }
+                if (viewModel == null) return;
+                UidWarningHelper.warnIfSharedUid(activity, viewModel.getUid(), mPackageName, () -> {
+                    ThreadUtils.postOnBackgroundThread(() -> {
+                        if (viewModel.setAppOpMode(item)) {
+                            int currentPos = holder.getBindingAdapterPosition();
+                            if (currentPos == RecyclerView.NO_POSITION) return;
+                            ThreadUtils.postOnMainThread(() -> notifyItemChanged(currentPos, AdapterUtils.STUB));
+                        } else {
+                            ThreadUtils.postOnMainThread(() -> UIUtils.displayLongToast(isAllowed
+                                    ? R.string.failed_to_enable_op : R.string.failed_to_disable_op));
+                        }
+                    });
                 });
             });
             holder.itemView.setOnLongClickListener(v -> {
@@ -710,13 +722,16 @@ public class AppDetailsPermissionsFragment extends AppDetailsFragment {
                             int currentPos = holder.getBindingAdapterPosition();
                             if (currentPos == RecyclerView.NO_POSITION) return;
                             // TODO: 22/5/23 Perform using a ViewModel
-                            ThreadUtils.postOnBackgroundThread(() -> {
-                                if (viewModel != null && viewModel.setAppOpMode(item, opMode)) {
-                                    ThreadUtils.postOnMainThread(() -> notifyItemChanged(currentPos, AdapterUtils.STUB));
-                                } else {
-                                    ThreadUtils.postOnMainThread(() -> UIUtils.displayLongToast(
-                                            R.string.failed_to_change_app_op_mode));
-                                }
+                            if (viewModel == null) return;
+                            UidWarningHelper.warnIfSharedUid(activity, viewModel.getUid(), mPackageName, () -> {
+                                ThreadUtils.postOnBackgroundThread(() -> {
+                                    if (viewModel.setAppOpMode(item, opMode)) {
+                                        ThreadUtils.postOnMainThread(() -> notifyItemChanged(currentPos, AdapterUtils.STUB));
+                                    } else {
+                                        ThreadUtils.postOnMainThread(() -> UIUtils.displayLongToast(
+                                                R.string.failed_to_change_app_op_mode));
+                                    }
+                                });
                             });
                             dialog.dismiss();
                         })

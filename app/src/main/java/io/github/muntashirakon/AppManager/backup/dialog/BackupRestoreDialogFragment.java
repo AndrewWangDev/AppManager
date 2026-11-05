@@ -392,19 +392,27 @@ public class BackupRestoreDialogFragment extends CapsuleBottomSheetDialogFragmen
 
     @UiThread
     private void startOperation(@NonNull BackupRestoreDialogViewModel.OperationInfo operationInfo) {
-        mMode = operationInfo.mode;
-        if (mActionBeginInterface != null) {
-            mActionBeginInterface.onActionBegin(operationInfo.mode);
+        Runnable doStart = () -> {
+            mMode = operationInfo.mode;
+            if (mActionBeginInterface != null) {
+                mActionBeginInterface.onActionBegin(operationInfo.mode);
+            }
+            ContextCompat.registerReceiver(mActivity, mBatchOpsBroadCastReceiver,
+                    new IntentFilter(BatchOpsService.ACTION_BATCH_OPS_COMPLETED), ContextCompat.RECEIVER_NOT_EXPORTED);
+            // Start batch ops service
+            BatchBackupOptions options = new BatchBackupOptions(operationInfo.flags, operationInfo.backupNames, operationInfo.relativeDirs);
+            BatchQueueItem queueItem = BatchQueueItem.getBatchOpQueue(operationInfo.op,
+                    operationInfo.packageList, operationInfo.userIdListMappedToPackageList, options);
+            Intent intent = BatchOpsService.getServiceIntent(mActivity, queueItem);
+            ContextCompat.startForegroundService(mActivity, intent);
+            dismiss();
+        };
+
+        if (operationInfo.op == io.github.muntashirakon.AppManager.batchops.BatchOpsManager.OP_RESTORE_BACKUP) {
+            io.github.muntashirakon.AppManager.utils.UidWarningHelper.warnIfSharedUids(requireContext(), operationInfo.packageList, doStart);
+        } else {
+            doStart.run();
         }
-        ContextCompat.registerReceiver(mActivity, mBatchOpsBroadCastReceiver,
-                new IntentFilter(BatchOpsService.ACTION_BATCH_OPS_COMPLETED), ContextCompat.RECEIVER_NOT_EXPORTED);
-        // Start batch ops service
-        BatchBackupOptions options = new BatchBackupOptions(operationInfo.flags, operationInfo.backupNames, operationInfo.relativeDirs);
-        BatchQueueItem queueItem = BatchQueueItem.getBatchOpQueue(operationInfo.op,
-                operationInfo.packageList, operationInfo.userIdListMappedToPackageList, options);
-        Intent intent = BatchOpsService.getServiceIntent(mActivity, queueItem);
-        ContextCompat.startForegroundService(mActivity, intent);
-        dismiss();
     }
 
     private class BackupDialogFragmentPagerAdapter extends FragmentStateAdapter {

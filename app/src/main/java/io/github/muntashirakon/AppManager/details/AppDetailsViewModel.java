@@ -88,6 +88,8 @@ import io.github.muntashirakon.AppManager.misc.AdvancedSearchView;
 import io.github.muntashirakon.AppManager.misc.AdvancedSearchView.ChoiceGenerator;
 import io.github.muntashirakon.AppManager.permission.DevelopmentPermission;
 import io.github.muntashirakon.AppManager.permission.PermUtils;
+import io.github.muntashirakon.AppManager.types.UserPackagePair;
+import io.github.muntashirakon.AppManager.utils.PackageUtils;
 import io.github.muntashirakon.AppManager.permission.Permission;
 import io.github.muntashirakon.AppManager.permission.PermissionException;
 import io.github.muntashirakon.AppManager.permission.ReadOnlyPermission;
@@ -1161,6 +1163,16 @@ public class AppDetailsViewModel extends AndroidViewModel {
     @Nullable
     public PackageInfo getPackageInfo() {
         return mPackageInfo;
+    }
+
+    public int getUid() {
+        if (mPackageInfo != null && mPackageInfo.applicationInfo != null) {
+            return mPackageInfo.applicationInfo.uid;
+        }
+        if (mPackageName != null) {
+            return PackageUtils.getAppUid(new UserPackagePair(mPackageName, mUserId));
+        }
+        return -1;
     }
 
     @AnyThread
