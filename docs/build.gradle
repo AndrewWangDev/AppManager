@@ -46,7 +46,15 @@ tasks.register('buildDocs') {
             if (isWindows) {
                 //On Windows, Bash is intercepted by WSL (Ubuntu by default);
                 //Use clean formatting and relative paths.
-                executable = "bash"
+                File gitBash = new File("C:/Program Files/Git/bin/bash.exe")
+                File msysBash = new File("C:/msys64/usr/bin/bash.exe")
+                if (gitBash.exists()) {
+                    executable = gitBash.absolutePath
+                } else if (msysBash.exists()) {
+                    executable = msysBash.absolutePath
+                } else {
+                    executable = "bash"
+                }
                 args = ["scripts/make_docs.sh"]
             } else {
                 // macOS/Linux
